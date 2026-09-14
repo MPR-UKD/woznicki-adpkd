@@ -1,0 +1,36 @@
+[project]
+name = "adpkd-net"
+version = "0.2.0"
+description = "Docker-packaged nnU-Net inference wrapper for ADPKD kidney segmentation on MRI volumes"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch==2.4.1",
+    "numpy>=1.26,<2.0",
+    "scipy>=1.11,<1.13",
+    "scikit-image>=0.14",
+    "scikit-learn>=1.0",
+    "medpy==0.4.0",
+    "batchgenerators==0.21",
+    "nilearn>=0.6.2",
+    "nipype",
+    "pandas",
+    "nibabel",
+    "SimpleITK",
+    "dicom2nifti",
+    "tqdm",
+    "matplotlib",
+]
+
+# The vendored nnU-Net package (source/nnUNet) is deliberately NOT declared
+# here. Its own setup.py has an unpinned install_requires that includes the
+# deprecated "sklearn" PyPI shim, which fails to build under uv's resolver.
+# It is installed separately in the Dockerfile as an editable, --no-deps
+# install so its own dependency list is never consulted.
+
+[[tool.uv.index]]
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu118" }
