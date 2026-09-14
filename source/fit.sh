@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #parse the arguments
-usage() { echo "Usage: $0 [--InputVol <string>] [--OutputDir <string>] [--small (optional)]" 1>&2; exit 1; }
+usage() { echo "Usage: $0 [--InputVol <string>] [--OutputDir <string>] [--small (optional)] [--cpu (optional)]" 1>&2; exit 1; }
 
 Model="large"
 
@@ -15,6 +15,14 @@ while [ "$#" -gt 0 ]; do
             ;;
         --small)
             Model="small"; shift
+            ;;
+        --cpu)
+            # Forces CPU-only inference (no GPU required). Much slower than
+            # GPU inference (roughly 10-30x for this kind of 3D sliding
+            # window ensemble) - use --small alongside --cpu to reduce
+            # runtime further where possible.
+            export CUDA_VISIBLE_DEVICES=""
+            shift
             ;;
         *)
 			echo "unknown option $1" >&2;
