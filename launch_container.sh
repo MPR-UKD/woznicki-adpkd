@@ -6,6 +6,8 @@ if ! [ $1 ]; then
 fi
 DATA_PATH=$1
 
-nvidia-docker run \
-  -v $DATA_PATH:/workspace/data \
+# Requires the NVIDIA Container Toolkit (successor to nvidia-docker2) and Docker Engine 19.03+
+docker run \
+  --gpus all \
+  -v "$DATA_PATH":/workspace/data \
   -it piotrekwoznicki/adpkd-net:v0.1
