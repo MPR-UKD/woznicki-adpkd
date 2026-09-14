@@ -29,3 +29,12 @@ def to_cuda(data, non_blocking=True, gpu_id=0):
     else:
         data = data.cuda(gpu_id, non_blocking=True)
     return data
+
+
+def to_device(data, device, non_blocking=True):
+    """Like to_cuda, but device may also be the string "cpu"."""
+    if device == "cpu":
+        if isinstance(data, list):
+            return [i.cpu() for i in data]
+        return data.cpu()
+    return to_cuda(data, non_blocking=non_blocking, gpu_id=device)
