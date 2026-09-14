@@ -15,7 +15,7 @@
 
 import numpy as np
 from batchgenerators.augmentations.utils import pad_nd_image
-from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
+from nnunet.utilities.to_torch import to_device, maybe_to_torch
 from torch import nn
 import torch
 from scipy.ndimage.filters import gaussian_filter
@@ -27,7 +27,7 @@ class NeuralNetwork(nn.Module):
         super(NeuralNetwork, self).__init__()
 
     def get_device(self):
-        if next(self.parameters()).device == "cpu":
+        if next(self.parameters()).device.type == "cpu":
             return "cpu"
         else:
             return next(self.parameters()).device.index
@@ -107,8 +107,6 @@ class SegmentationNetwork(NeuralNetwork):
                                'predictions'
 
         if verbose: print("debug: mirroring", do_mirroring, "mirror_axes", mirror_axes)
-
-        assert self.get_device() != "cpu", "CPU not implemented"
 
         if pad_kwargs is None:
             pad_kwargs = {'constant_values': 0}
@@ -194,8 +192,6 @@ class SegmentationNetwork(NeuralNetwork):
 
         if verbose: print("debug: mirroring", do_mirroring, "mirror_axes", mirror_axes)
 
-        assert self.get_device() != "cpu", "CPU not implemented"
-
         if pad_kwargs is None:
             pad_kwargs = {'constant_values': 0}
 
@@ -271,7 +267,6 @@ class SegmentationNetwork(NeuralNetwork):
                                           verbose: bool) -> Tuple[np.ndarray, np.ndarray]:
         # better safe than sorry
         assert len(x.shape) == 4, "x must be (c, x, y, z)"
-        assert self.get_device() != "cpu"
         if verbose: print("step_size:", step_size)
         if verbose: print("do mirror:", do_mirroring)
 
@@ -309,8 +304,8 @@ class SegmentationNetwork(NeuralNetwork):
                     if verbose: print("using precomputed Gaussian")
                     gaussian_importance_map = self._gaussian_3d
 
-                gaussian_importance_map = torch.from_numpy(gaussian_importance_map).cuda(self.get_device(),
-                                                                                         non_blocking=True)
+                gaussian_importance_map = to_device(torch.from_numpy(gaussian_importance_map), self.get_device(),
+                                                    non_blocking=True)
 
             else:
                 gaussian_importance_map = None
@@ -337,7 +332,7 @@ class SegmentationNetwork(NeuralNetwork):
                                                  device=self.get_device())
 
                 if verbose: print("moving data to GPU")
-                data = torch.from_numpy(data).cuda(self.get_device(), non_blocking=True)
+                data = to_device(torch.from_numpy(data), self.get_device(), non_blocking=True)
 
                 if verbose: print("initializing result_numsamples (on GPU)")
                 aggregated_nb_of_predictions = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,
@@ -412,7 +407,6 @@ class SegmentationNetwork(NeuralNetwork):
         This one does fully convolutional inference. No sliding window
         """
         assert len(x.shape) == 3, "x must be (c, x, y)"
-        assert self.get_device() != "cpu"
         assert self.input_shape_must_be_divisible_by is not None, 'input_shape_must_be_divisible_by must be set to ' \
                                                                   'run _internal_predict_2D_2Dconv'
         if verbose: print("do mirror:", do_mirroring)
@@ -451,7 +445,6 @@ class SegmentationNetwork(NeuralNetwork):
         This one does fully convolutional inference. No sliding window
         """
         assert len(x.shape) == 4, "x must be (c, x, y, z)"
-        assert self.get_device() != "cpu"
         assert self.input_shape_must_be_divisible_by is not None, 'input_shape_must_be_divisible_by must be set to ' \
                                                                   'run _internal_predict_3D_3Dconv'
         if verbose: print("do mirror:", do_mirroring)
@@ -489,12 +482,12 @@ class SegmentationNetwork(NeuralNetwork):
         # everything in here takes place on the GPU. If x and mult are not yet on GPU this will be taken care of here
         # we now return a cuda tensor! Not numpy array!
         with torch.no_grad():
-            x = to_cuda(maybe_to_torch(x), gpu_id=self.get_device())
-            result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:]),
-                                       dtype=torch.float).cuda(self.get_device(), non_blocking=True)
+            x = to_device(maybe_to_torch(x), self.get_device())
+            result_torch = to_device(torch.zeros([1, self.num_classes] + list(x.shape[2:]),
+                                     dtype=torch.float), self.get_device(), non_blocking=True)
 
             if mult is not None:
-                mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
+                mult = to_device(maybe_to_torch(mult), self.get_device())
 
             if do_mirroring:
                 mirror_idx = 8
@@ -549,12 +542,12 @@ class SegmentationNetwork(NeuralNetwork):
         assert len(x.shape) == 4, 'x must be (b, c, x, y)'
 
         with torch.no_grad():
-            x = to_cuda(maybe_to_torch(x), gpu_id=self.get_device())
-            result_torch = torch.zeros([x.shape[0], self.num_classes] + list(x.shape[2:]),
-                                       dtype=torch.float).cuda(self.get_device(), non_blocking=True)
+            x = to_device(maybe_to_torch(x), self.get_device())
+            result_torch = to_device(torch.zeros([x.shape[0], self.num_classes] + list(x.shape[2:]),
+                                     dtype=torch.float), self.get_device(), non_blocking=True)
 
             if mult is not None:
-                mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
+                mult = to_device(maybe_to_torch(mult), self.get_device())
 
             if do_mirroring:
                 mirror_idx = 4
@@ -591,7 +584,6 @@ class SegmentationNetwork(NeuralNetwork):
                                           verbose: bool) -> Tuple[np.ndarray, np.ndarray]:
         # better safe than sorry
         assert len(x.shape) == 3, "x must be (c, x, y)"
-        assert self.get_device() != "cpu"
         if verbose: print("step_size:", step_size)
         if verbose: print("do mirror:", do_mirroring)
 
@@ -629,8 +621,8 @@ class SegmentationNetwork(NeuralNetwork):
                     if verbose: print("using precomputed Gaussian")
                     gaussian_importance_map = self._gaussian_2d
 
-                gaussian_importance_map = torch.from_numpy(gaussian_importance_map).cuda(self.get_device(),
-                                                                                         non_blocking=True)
+                gaussian_importance_map = to_device(torch.from_numpy(gaussian_importance_map), self.get_device(),
+                                                    non_blocking=True)
             else:
                 gaussian_importance_map = None
 
@@ -656,7 +648,7 @@ class SegmentationNetwork(NeuralNetwork):
                                                  device=self.get_device())
 
                 if verbose: print("moving data to GPU")
-                data = torch.from_numpy(data).cuda(self.get_device(), non_blocking=True)
+                data = to_device(torch.from_numpy(data), self.get_device(), non_blocking=True)
 
                 if verbose: print("initializing result_numsamples (on GPU)")
                 aggregated_nb_of_predictions = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,
