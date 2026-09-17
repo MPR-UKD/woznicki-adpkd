@@ -19,10 +19,23 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
+import torch
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 API_VERSION = "1.0.0"
+
+# The two tasks fix_orientation.py can select (source/utils.py:get_task) —
+# axial volumes get Task002_Kidney, coronal get Task003_coronal. A job can
+# only succeed against whichever of these has a complete trained model.
+_TASKS = ("Task002_Kidney", "Task003_coronal")
+
+# Exact directory name fit.sh's -pp argument references for the "large"
+# (default) ensemble path — see fit.sh's nnUNet_ensemble call.
+_ENSEMBLE_DIR_NAME = (
+    "ensemble_2d__nnUNetTrainerV2__nnUNetPlansv2.1"
+    "--3d_fullres__nnUNetTrainerV2__nnUNetPlansv2.1"
+)
 
 DATA_ROOT = Path(os.environ.get("DATA_ROOT", "/data/adpkd")).resolve()
 INPUT_ROOT = (DATA_ROOT / "inputs").resolve()
@@ -73,6 +86,68 @@ def health() -> dict:
 def version() -> dict:
     """Report the API version for compatibility checks by callers."""
     return {"api_version": API_VERSION}
+
+
+def _has_checkpoint(model_dir: Path) -> bool:
+    """Return whether a complete model_final_checkpoint exists under a task's model dir.
+
+    nnU-Net predict always looks for this exact checkpoint name (see the
+    ``checkpoint_name="model_final_checkpoint"`` default throughout the
+    vendored nnUNet's predict.py/predict_simple.py, which has no CLI flag to
+    override it) — both the ``.model`` weights and its ``.model.pkl``
+    metadata sibling must be present, wherever nnU-Net's own fold/trainer
+    subdirectory layout puts them.
+    """
+    if not model_dir.is_dir():
+        return False
+    for weights_file in model_dir.rglob("model_final_checkpoint.model"):
+        if Path(f"{weights_file}.pkl").is_file():
+            return True
+    return False
+
+
+def _task_status(task: str) -> dict:
+    """Report readiness of one task's trained model against what fit.sh needs."""
+    nnunet_dir = RESULTS_FOLDER / "nnUNet"
+    missing = []
+    if not _has_checkpoint(nnunet_dir / "2d" / task):
+        missing.append("2d checkpoint")
+    if not _has_checkpoint(nnunet_dir / "3d_fullres" / task):
+        missing.append("3d_fullres checkpoint")
+    postprocessing_file = (
+        nnunet_dir / "ensembles" / task / _ENSEMBLE_DIR_NAME / "postprocessing.json"
+    )
+    if not postprocessing_file.is_file():
+        missing.append("ensemble postprocessing.json")
+    return {"ready": not missing, "missing": missing}
+
+
+@app.get("/status")
+def status() -> dict:
+    """Report GPU availability and per-task trained-model readiness.
+
+    Distinct from /health: /health is a fast liveness probe (used by the
+    container HEALTHCHECK and compose's service_healthy condition) — this
+    endpoint does heavier, detailed checks meant for a UI to display, not
+    for orchestration to poll.
+    """
+    gpu_available = False
+    gpu_name = "N/A"
+    gpu_device = "cpu"
+    try:
+        gpu_available = torch.cuda.is_available()
+        if gpu_available:
+            gpu_name = torch.cuda.get_device_name(0)
+            gpu_device = "cuda:0"
+    except Exception:
+        pass
+
+    tasks = {task: _task_status(task) for task in _TASKS}
+    return {
+        "gpu": {"available": gpu_available, "name": gpu_name, "device": gpu_device},
+        "tasks": tasks,
+        "models_ready": all(info["ready"] for info in tasks.values()),
+    }
 
 
 @app.post("/jobs", status_code=202)
