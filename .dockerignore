@@ -1,0 +1,13 @@
+# Model weights are provided via the adpkd_models volume at runtime, not
+# baked into the image (see README.md).
+source/trained_models/
+
+# Sample smoke-test volumes — not needed by the service itself, mount your
+# own via launch_container.sh's data volume instead (see README.md).
+test_data/
+
+.git/
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
