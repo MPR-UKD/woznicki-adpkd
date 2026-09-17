@@ -1,0 +1,39 @@
+services:
+  adpkd:
+    build:
+      context: .
+    image: adpkd-net:latest
+    command:
+      [
+        "python3", "-m", "uvicorn", "api_service:app",
+        "--app-dir", "/workspace/source",
+        "--host", "0.0.0.0", "--port", "9000",
+      ]
+    environment:
+      DATA_ROOT: /data/adpkd
+      SOURCE_DIR: /workspace/source
+      RESULTS_FOLDER: /workspace/source/trained_models
+    volumes:
+      - data:/data/adpkd
+      - models:/workspace/source/trained_models
+    # No published host port: reachable only on this compose network, e.g.
+    # http://adpkd:9000 from a service joined to it (see README.md for how
+    # to run this alongside libs/nomiso).
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  data:
+  models:
