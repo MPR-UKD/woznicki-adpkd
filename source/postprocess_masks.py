@@ -21,11 +21,11 @@ def calculate_volume(nifti_path):
     return np.round(volume, 2)
 
 def is_right_kidney(nifti_mask, center):
-	LR_direction = nib.aff2axcodes(nifti_mask.affine)[0]
-	matrix = nifti_mask.get_fdata()
-	midline = matrix.shape[0] / 2
-	assert(LR_direction in ['L', 'R'])
-	if center[0] < midline:
+	axcodes = nib.aff2axcodes(nifti_mask.affine)
+	LR_axis = next(i for i, code in enumerate(axcodes) if code in ['L', 'R'])
+	LR_direction = axcodes[LR_axis]
+	midline = nifti_mask.shape[LR_axis] / 2
+	if center[LR_axis] < midline:
 		if LR_direction == 'R':
 			right = False
 		else:

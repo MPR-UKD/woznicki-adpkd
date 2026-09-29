@@ -1,7 +1,7 @@
 import sys
 import nibabel as nib
 from os.path import exists
-from utils import get_orientation, get_task, reorient
+from utils import get_orientation, get_task, reorient_for_coronal_model
 
 if __name__ == '__main__':
     input_path = sys.argv[1]
@@ -11,5 +11,4 @@ if __name__ == '__main__':
         task = get_task(plane)
         print(task)
         if plane == 'cor':
-            reorient(input_path)
-        
+            reorient_for_coronal_model(input_path)

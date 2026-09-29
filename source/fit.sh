@@ -67,7 +67,7 @@ then
 else
     nnUNet_predict -i ${WorkDir}/input -o ${WorkDir}/output/ensemble -m 2d -tr nnUNetTrainerV2 -ctr nnUNetTrainerV2CascadeFullRes -p nnUNetPlansv2.1 -t ${Task}
 fi
-python3 ${SourceDir}/move_result_maybe_reorient.py --image_path ${InputVol} --mask_path ${WorkDir}/output/ensemble/1.nii.gz --output_dir ${OutputDir} --task ${Task}
+python3 ${SourceDir}/move_result_maybe_reorient.py --image_path ${InputVol} --mask_path ${WorkDir}/output/ensemble/1.nii.gz --output_dir ${OutputDir} --task ${Task} || exit 1
 
 #generate JSON with statistics
 python3 ${SourceDir}/postprocess_masks.py --prediction_dir ${OutputDir}
