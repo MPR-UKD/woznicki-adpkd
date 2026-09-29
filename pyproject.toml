@@ -12,7 +12,6 @@ dependencies = [
     "medpy==0.4.0",
     "batchgenerators==0.21",
     "nilearn>=0.6.2",
-    "nipype",
     "pandas",
     "nibabel",
     "SimpleITK",
@@ -36,3 +35,13 @@ explicit = true
 
 [tool.uv.sources]
 torch = { index = "pytorch-cu118" }
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["source"]
+testpaths = ["tests"]
+markers = [
+    "unit: isolated tests for individual functions, no external dependencies",
+]

@@ -22,9 +22,18 @@ Covers this branch (`http-api`) relative to the parent repo's `main` branch.
 - `docker-compose.yml`: an `adpkd` service running the API, with `data` (job input/output files) and `models` (trained model weights) named volumes, an NVIDIA GPU reservation, and a healthcheck against `/health`. No host port is published — reachable only on the compose network (e.g. `http://adpkd:9000`).
 - `.dockerignore`: excludes `source/trained_models/` and `test_data/` from the build context. Model weights are supplied via the `models` volume at runtime instead of being baked into the image; sample test volumes aren't needed by the service and were only ever used for a manual smoke check.
 - `.gitattributes`: enforces LF line endings (`* text=auto eol=lf`, `*.sh text eol=lf`) so shell scripts don't pick up CRLF from a Windows checkout/edit and break `bash` inside the Linux container.
-- `fastapi`/`uvicorn[standard]` dependencies, for the HTTP API.
+- `fastapi`/`uvicorn[standard]` dependencies, for the HTTP API; `pytest` dev dependency group.
+- `source/check_orientation.py <input> <output_dir>`: checks that every mask in a job's output matches the input image's shape, axcodes and affine.
+- `tests/test_orientation.py`: orientation round-trip tests through the pre-/post-processing with a SimpleITK stand-in for nnU-Net, covering several coronal/axial voxel layouts and oblique affines. Run with `uv run pytest`.
 - `docs/api.md`: the HTTP API reference (starting the service, its volumes, every endpoint, the `result`/`status` response shapes).
 - README: the one-time `models` volume-seeding step that replaces the old "download into `source/` before building" flow, and a link to `docs/api.md` for the API reference.
+
+### Fixed
+
+- Coronal segmentations could come back mirrored along the wrong axis. The coronal pre-processing flipped the A/P voxel axis without updating the affine, and `move_result_maybe_reorient.py` undid it by flipping a hard-coded voxel axis 2. That is only correct when the input stores A/P as its third axis, so layouts such as `LPS`, `PRS` or `ASL` came back misaligned. Coronal inputs are now reoriented to `RPS` (the same voxel array the model has always seen, but with an affine that records the flip). The prediction is mapped back onto the input's voxel grid using the affines alone and saved with the input's affine and header as `uint8` labels.
+- `move_result_maybe_reorient.py` now checks that the returned `seg.nii.gz` has the input image's shape, axcodes and affine for every task. If it doesn't, `fit.sh` exits non-zero, so the API job is marked `failed` instead of returning a misaligned mask.
+- `postprocess_masks.py`: left/right kidney assignment now finds the L/R axis from the affine instead of assuming it is voxel axis 0.
+- The coronal network input is no longer cast to `uint16`.
 
 ### Changed
 
