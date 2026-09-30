@@ -32,7 +32,8 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ ! -f "${InputVol}" ]; then
-    echo "Input nifti volume does NOT exist"
+    echo "Input nifti volume does NOT exist: ${InputVol}" >&2
+    exit 1
 fi
 
 WorkDir="/workspace/temp"
@@ -52,7 +53,12 @@ mkdir -p ${OutputDir}
 #appropriate naming for the network (X_0000.nii.gz)
 cp ${InputVol} ${WorkDir}/input/1_0000.nii.gz
 
-Task=`python3 fix_orientation.py ${WorkDir}/input/1_0000.nii.gz`
+# Absolute path: fit.sh may be started from any working directory
+Task=$(python3 ${SourceDir}/fix_orientation.py ${WorkDir}/input/1_0000.nii.gz) || exit 1
+if [[ "${Task}" != "Task002_Kidney" && "${Task}" != "Task003_coronal" ]]; then
+    echo "Could not determine the nnU-Net task from the input orientation (got: '${Task}')" >&2
+    exit 1
+fi
 echo ${Task}
 
 #infer segmentation model
