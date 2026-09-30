@@ -28,3 +28,5 @@ if __name__ == '__main__':
         except ValueError as e:
             os.remove(output_path)
             sys.exit(f'Error ({args.task}): {e}')
+    else:
+        sys.exit(f'Error ({args.task}): no prediction at {seg_path}; nnU-Net failed, see its output above')
